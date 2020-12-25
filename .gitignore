@@ -2,3 +2,4 @@
 .gitgnore
 table
 table.bak
+*.txt

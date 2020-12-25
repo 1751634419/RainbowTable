@@ -4,7 +4,6 @@ import com.foxrbt.Data;
 import com.foxrbt.Function;
 
 import java.math.BigInteger;
-import java.util.Arrays;
 
 public class SReductionFunction implements Function {
     private int index;

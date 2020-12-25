@@ -26,8 +26,15 @@ public class RainbowTableProcessor {
         return target;
     }
 
-    public void save(Data source, Data target) {
+    public int save(Data source, Data target) {
+        if (table.getMap().containsKey(source)) {
+            return 0;
+        } else if (table.getMap().containsValue(target)) {
+            return -1;
+        }
+
         table.getMap().put(source, target);
+        return 1;
     }
 
     public Data findSource(Data data) {
