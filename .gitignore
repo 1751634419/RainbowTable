@@ -1,5 +1,4 @@
 /out
 .gitgnore
-table
-table.bak
+table*
 *.txt

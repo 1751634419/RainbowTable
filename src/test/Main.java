@@ -4,14 +4,15 @@ import com.foxrbt.*;
 import com.foxrbt.impl.LReductionFunction;
 import com.foxrbt.impl.MD5Function;
 import com.foxrbt.impl.MagicReductionFunction;
-import com.foxrbt.impl.SReductionFunction;
+import com.foxrbt.impl.Sha1Function;
 
 import java.io.*;
 import java.math.BigInteger;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 
 public class Main {
-    private static char[] charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-=_+".toCharArray();
+    private static char[] charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()[]-=_+/?.,<> '\"\\".toCharArray();
     private static int minLength = 4;
     private static int maxLength = 20;
     private static MultiTableProcessor mtp;
@@ -54,6 +55,30 @@ public class Main {
             }
             try {
                 switch (parameters[0].toLowerCase()) {
+                    case "algorithm":
+                        if (parameters.length != 2) {
+                            System.out.println("Invalid command.");
+                            break;
+                        }
+
+                        switch (parameters[1].toLowerCase()) {
+                            case "md5":
+                                hf = new MD5Function();
+                                System.out.println("OK");
+                                break;
+                            case "sha1":
+                                hf = new Sha1Function();
+                                System.out.println("OK");
+                                break;
+                            default:
+                                System.out.println("UNSUPPORTED ALGORITHM.");
+                                break;
+                        }
+                        break;
+                    case "regenerate":
+                        mtp = new MultiTableProcessor(new RainbowTable[] { generateTable() });
+                        System.out.println("OK");
+                        break;
 //                    case "random":
 //                        if (parameters.length != 2) {
 //                            System.out.println("Invalid command.");
@@ -82,12 +107,12 @@ public class Main {
                         }
                         mtp.precalc(new Data(parameters[1].getBytes()));
                         break;
-                    case "md5":
+                    case "encrypt":
                         if (parameters.length != 2) {
                             System.out.println("Invalid command.");
                             break;
                         }
-                        byte[] data = md5f.process(new Data(parameters[1].getBytes())).getData();
+                        byte[] data = hf.process(new Data(parameters[1].getBytes())).getData();
 //                        BigInteger bigInt = new BigInteger(data);
 //                        System.out.println("MD5: " + bigInt.toString(16));
                         System.out.println(byteToHex(data));
@@ -96,18 +121,26 @@ public class Main {
 //                        spawnContinuously();
 //                        break;
                     case "save":
-                        save("table");
-                        break;
-                    case "open":
-                        mtp = open();
-                        break;
-                    case "import":
                         if (parameters.length != 2) {
                             System.out.println("Invalid command.");
                             break;
                         }
+                        save(parameters[1]);
+                        break;
+                    case "open":
+                        if (parameters.length != 2) {
+                            System.out.println("Invalid command.");
+                            break;
+                        }
+                        mtp = open(parameters[1]);
+                        break;
+                    case "import":
+                        if (parameters.length != 3) {
+                            System.out.println("Invalid command.");
+                            break;
+                        }
 
-                        importFile(parameters[1]);
+                        importFile(parameters[1], parameters[2]);
                         break;
                     default:
                         System.out.println("Unrecognized command.");
@@ -115,16 +148,16 @@ public class Main {
                 }
             } catch (NumberFormatException exception) {
                 System.out.println("Invalid number.");
-            } catch (IOException | ClassNotFoundException exception) {
+            } catch (IOException | ExecutionException | InterruptedException exception) {
                 exception.printStackTrace();
             }
         }
     }
 
-    private static MD5Function md5f = new MD5Function();
+    private static Function hf = new MD5Function();
     private static Random random = new Random();
 
-    private static void importFile(String fileName) throws IOException {
+    private static void importFile(String fileName, String savingName) throws IOException {
         BufferedReader reader = new BufferedReader(new FileReader(fileName));
         String line;
         int count = 0;
@@ -147,10 +180,10 @@ public class Main {
             }
 
             if (count % 4000 == 0) {
-                save("table");
+                save(savingName);
             }
             if (count % 8000 == 0) {
-                save("table.bak");
+                save(savingName + ".bak");
             }
         }
         System.out.println("Done :)");
@@ -251,6 +284,7 @@ public class Main {
     public static void save(String fileName) throws IOException {
         List<RainbowTableProcessor> processors = mtp.getProcessorList();
         ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(fileName));
+        out.writeUTF(hf.toString());
         out.writeInt(processors.size());
         for (int i = 0; i < processors.size(); i++) {
             write(out, processors.get(i).getTable());
@@ -291,12 +325,23 @@ public class Main {
             map.put(readData(in), readData(in));
         }
 
-        return new RainbowTable(map, md5f, rf);
+        return new RainbowTable(map, hf, rf);
     }
 
-    public static MultiTableProcessor open() throws IOException, ClassNotFoundException {
+    public static MultiTableProcessor open(String fileName) throws IOException {
         List<RainbowTableProcessor> processors = new Vector<>();
-        ObjectInputStream in = new ObjectInputStream(new FileInputStream("table"));
+        ObjectInputStream in = new ObjectInputStream(new FileInputStream(fileName));
+        String algorithm = in.readUTF();
+        switch (algorithm) {
+            case "SHA1Hash":
+                hf = new Sha1Function();
+                break;
+            case "MD5Hash":
+                hf = new MD5Function();
+                break;
+            default:
+                throw new RuntimeException(algorithm);
+        }
         int size = in.readInt();
         for (int i = 0; i < size; i++) {
             processors.add(new RainbowTableProcessor(readTable(in)));

@@ -19,9 +19,7 @@ public class RainbowTableProcessor {
         Data target = source;
         for (int i = 0; i < reductionFunction.length; i++) {
             target = hashFunction.process(target);
-//            System.out.print(target + " ");
             target = reductionFunction[i].process(target);
-//            System.out.println(target);
         }
         return target;
     }
